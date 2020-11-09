@@ -31,46 +31,50 @@ void calculate_force(Particle *this_particle1, Particle *this_particle2,
 
 void nbody(Particle *d_particles, Particle *output)
 {
-	for (int id = 0; id < number_of_particles; id++)
+#pragma omp parallel
 	{
-		Particle *this_particle = &output[id];
-
-		float force_x = 0.0f, force_y = 0.0f, force_z = 0.0f;
-		float total_force_x = 0.0f, total_force_y = 0.0f, total_force_z = 0.0f;
-
-		int i;
-		for (i = 0; i < number_of_particles; i++)
+#pragma omp for
+		for (int id = 0; id < number_of_particles; id++)
 		{
-			if (i != id)
+			Particle *this_particle = &output[id];
+
+			float force_x = 0.0f, force_y = 0.0f, force_z = 0.0f;
+			float total_force_x = 0.0f, total_force_y = 0.0f, total_force_z = 0.0f;
+
+			int i;
+			for (i = 0; i < number_of_particles; i++)
 			{
-				calculate_force(d_particles + id, d_particles + i, &force_x, &force_y, &force_z);
+				if (i != id)
+				{
+					calculate_force(d_particles + id, d_particles + i, &force_x, &force_y, &force_z);
 
-				total_force_x += force_x;
-				total_force_y += force_y;
-				total_force_z += force_z;
+					total_force_x += force_x;
+					total_force_y += force_y;
+					total_force_z += force_z;
+				}
 			}
+
+			float velocity_change_x, velocity_change_y, velocity_change_z;
+			float position_change_x, position_change_y, position_change_z;
+
+			this_particle->mass = d_particles[id].mass;
+
+			velocity_change_x = total_force_x * (time_interval / this_particle->mass);
+			velocity_change_y = total_force_y * (time_interval / this_particle->mass);
+			velocity_change_z = total_force_z * (time_interval / this_particle->mass);
+
+			position_change_x = d_particles[id].velocity_x + velocity_change_x * (0.5 * time_interval);
+			position_change_y = d_particles[id].velocity_y + velocity_change_y * (0.5 * time_interval);
+			position_change_z = d_particles[id].velocity_z + velocity_change_z * (0.5 * time_interval);
+
+			this_particle->velocity_x = d_particles[id].velocity_x + velocity_change_x;
+			this_particle->velocity_y = d_particles[id].velocity_y + velocity_change_y;
+			this_particle->velocity_z = d_particles[id].velocity_z + velocity_change_z;
+
+			this_particle->position_x = d_particles[id].position_x + position_change_x;
+			this_particle->position_y = d_particles[id].position_y + position_change_y;
+			this_particle->position_z = d_particles[id].position_z + position_change_z;
 		}
-
-		float velocity_change_x, velocity_change_y, velocity_change_z;
-		float position_change_x, position_change_y, position_change_z;
-
-		this_particle->mass = d_particles[id].mass;
-
-		velocity_change_x = total_force_x * (time_interval / this_particle->mass);
-		velocity_change_y = total_force_y * (time_interval / this_particle->mass);
-		velocity_change_z = total_force_z * (time_interval / this_particle->mass);
-
-		position_change_x = d_particles[id].velocity_x + velocity_change_x * (0.5 * time_interval);
-		position_change_y = d_particles[id].velocity_y + velocity_change_y * (0.5 * time_interval);
-		position_change_z = d_particles[id].velocity_z + velocity_change_z * (0.5 * time_interval);
-
-		this_particle->velocity_x = d_particles[id].velocity_x + velocity_change_x;
-		this_particle->velocity_y = d_particles[id].velocity_y + velocity_change_y;
-		this_particle->velocity_z = d_particles[id].velocity_z + velocity_change_z;
-
-		this_particle->position_x = d_particles[id].position_x + position_change_x;
-		this_particle->position_y = d_particles[id].position_y + position_change_y;
-		this_particle->position_z = d_particles[id].position_z + position_change_z;
 	}
 }
 
@@ -79,9 +83,14 @@ int main(int argc, char **argv)
 {
 	if (argc < 2)
 	{
-		std::cout << "Informe um arquivo com os parâmetros de entrada: ./nbody_simulation <input_file.in>\n";
+		std::cout << "Informe um arquivo com os parâmetros de entrada: ./nbody_simulation <input_file.in> <number_of_threads>\n";
 		std::abort();
 	}
+
+	int number_of_threds = atoi(argv[2]);
+	printf("Número de threads: %d\n", number_of_threds);
+	omp_set_dynamic(0);										 // Explicitly disable dynamic teams
+	omp_set_num_threads(number_of_threds); // Use number_of_threds for all consecutive parallel regions
 
 	Particle *particle_array = nullptr;
 	Particle *particle_array2 = nullptr;
@@ -96,19 +105,21 @@ int main(int argc, char **argv)
 	printf("Processando simulação NBody....\n");
 
 	long start = wtime();
-
-	for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
+#pragma omp parallel
 	{
-		nbody(particle_array, particle_array2);
+#pragma omp for
+		for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
+		{
+			nbody(particle_array, particle_array2);
 
-		/* swap arrays */
-		Particle *tmp = particle_array;
-		particle_array = particle_array2;
-		particle_array2 = tmp;
+			/* swap arrays */
+			Particle *tmp = particle_array;
+			particle_array = particle_array2;
+			particle_array2 = tmp;
 
-		printf("   Iteração %d OK\n", timestep);
+			printf("   Iteração %d OK\n", timestep);
+		}
 	}
-
 	long end = wtime();
 	double time = (end - start) / 1000000.0;
 
