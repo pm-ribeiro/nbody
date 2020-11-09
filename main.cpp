@@ -104,7 +104,9 @@ int main(int argc, char **argv)
 
 	printf("Processando simulação NBody....\n");
 
-	long start = wtime();
+	// long start = wtime(); //old time
+	double start = omp_get_wtime(); //new time
+
 #pragma omp parallel
 	{
 #pragma omp for
@@ -120,7 +122,10 @@ int main(int argc, char **argv)
 			printf("   Iteração %d OK\n", timestep);
 		}
 	}
-	long end = wtime();
+
+	// long end = wtime(); //old time
+	double end = omp_get_wtime(); //new time
+
 	double time = (end - start) / 1000000.0;
 
 	printf("Simulação NBody executada com sucesso.\n");
