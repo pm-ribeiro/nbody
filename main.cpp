@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 	// long end = wtime(); //old time
 	double end = omp_get_wtime(); //new time
 
-	double time = (end - start) / 1000000.0;
+	double time = (end - start); /// 1000000.0;
 
 	printf("Simulação NBody executada com sucesso.\n");
 	printf("Nro. de Partículas: %d\n", number_of_particles);
