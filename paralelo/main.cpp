@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <iostream>
 #include <cmath>
+#include <string>
+using namespace std;
 
 void calculate_force(Particle *this_particle1, Particle *this_particle2,
 										 float *force_x, float *force_y, float *force_z)
@@ -97,9 +99,14 @@ int main(int argc, char **argv)
 
 	FILE *input_data = fopen(argv[1], "r");
 	Particle_input_arguments(input_data);
-	FILE *results_file = fopen("resultados_nbody.txt", "w");
 
-	//adiciona iter 30
+	// cria o arquivo para salvar os tempos de execução
+	string out_file_name = "resultados_nbody_" + to_string(number_of_threds) + "_threads.txt";
+	char *c_out_file_name = const_cast<char *>(out_file_name.c_str());
+
+	FILE *results_file = fopen(c_out_file_name, "w");
+
+	//executa 30x
 	for (int i = 0; i < 30; i++)
 	{
 		particle_array = Particle_array_construct(number_of_particles);
@@ -108,8 +115,7 @@ int main(int argc, char **argv)
 
 		printf("Processando simulação NBody.... iter = %d\n", i);
 
-		// long start = wtime(); //old time
-		double start = omp_get_wtime(); //new time
+		double start = omp_get_wtime();
 
 #pragma omp parallel
 		{
@@ -127,10 +133,9 @@ int main(int argc, char **argv)
 			}
 		}
 
-		// long end = wtime(); //old time
-		double end = omp_get_wtime(); //new time
+		double end = omp_get_wtime();
 
-		double time = (end - start); /// 1000000.0;
+		double time = (end - start);
 
 		printf("Simulação NBody executada com sucesso.\n");
 		printf("Nro. de Partículas: %d\n", number_of_particles);
