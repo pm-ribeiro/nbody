@@ -97,52 +97,64 @@ int main(int argc, char **argv)
 
 	FILE *input_data = fopen(argv[1], "r");
 	Particle_input_arguments(input_data);
+	FILE *results_file = fopen("resultados_nbody.txt", "w");
 
-	particle_array = Particle_array_construct(number_of_particles);
-	particle_array2 = Particle_array_construct(number_of_particles);
-	Particle_array_initialize(particle_array, number_of_particles);
+	//adiciona iter 30
+	for (int i = 0; i < 30; i++)
+	{
+		particle_array = Particle_array_construct(number_of_particles);
+		particle_array2 = Particle_array_construct(number_of_particles);
+		Particle_array_initialize(particle_array, number_of_particles);
 
-	printf("Processando simulação NBody....\n");
+		printf("Processando simulação NBody.... iter = %d\n", i);
 
-	// long start = wtime(); //old time
-	double start = omp_get_wtime(); //new time
+		// long start = wtime(); //old time
+		double start = omp_get_wtime(); //new time
 
 #pragma omp parallel
-	{
-#pragma omp for
-		for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
 		{
-			nbody(particle_array, particle_array2);
+#pragma omp for
+			for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
+			{
+				nbody(particle_array, particle_array2);
 
-			/* swap arrays */
-			Particle *tmp = particle_array;
-			particle_array = particle_array2;
-			particle_array2 = tmp;
+				/* swap arrays */
+				Particle *tmp = particle_array;
+				particle_array = particle_array2;
+				particle_array2 = tmp;
 
-			printf("   Iteração %d OK\n", timestep);
+				printf("   Iteração %d OK\n", timestep);
+			}
 		}
-	}
 
-	// long end = wtime(); //old time
-	double end = omp_get_wtime(); //new time
+		// long end = wtime(); //old time
+		double end = omp_get_wtime(); //new time
 
-	double time = (end - start); /// 1000000.0;
+		double time = (end - start); /// 1000000.0;
 
-	printf("Simulação NBody executada com sucesso.\n");
-	printf("Nro. de Partículas: %d\n", number_of_particles);
-	printf("Nro. de Iterações: %d\n", number_of_timesteps);
-	printf("Tempo: %.8f segundos\n", time);
+		printf("Simulação NBody executada com sucesso.\n");
+		printf("Nro. de Partículas: %d\n", number_of_particles);
+		printf("Nro. de Iterações: %d\n", number_of_timesteps);
+		printf("Tempo: %.8f segundos\n", time);
+
+		// ------------------------------------------------
+		printf("\nImprimindo saída em arquivo...\n");
+
+		fprintf(results_file, "%f\n", time);
 
 #ifdef VERBOSE
-	//Imprimir saída para arquivo
-	printf("\nImprimindo saída em arquivo...\n");
-	FILE *fileptr = fopen("nbody_simulation.out", "w");
-	Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
-	printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
+		//Imprimir saída para arquivo
+		printf("\nImprimindo saída em arquivo...\n");
+		FILE *fileptr = fopen("nbody_simulation.out", "w");
+		Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
+		printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
 #endif
 
-	particle_array = Particle_array_destruct(particle_array, number_of_particles);
-	particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+		particle_array = Particle_array_destruct(particle_array, number_of_particles);
+		particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+	}
+
+	fclose(results_file);
 
 	return PROGRAM_SUCCESS_CODE;
 }
