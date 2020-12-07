@@ -1,5 +1,8 @@
 # Problema Nbody
 
+Problema Nbody paralelo utilizando pthreads.
+
+
 Instruções para execução
 
 ### Compilar os arquivos
