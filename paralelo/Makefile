@@ -2,7 +2,6 @@ CXX= g++-10
 LINK = $(CXX)
 EXE = nbody_simulation
 CXXFLAGS = -fopenmp -O3 -std=c++11 -lpthread
-# CXXFLAGS = -O3 -std=c++11
 
 #CXXFLAGS += -g -DVERBOSE
 

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cmath>
 #include <string>
+#include <mpi.h>
+
 using namespace std;
 
 void calculate_force(Particle *this_particle1, Particle *this_particle2,
@@ -31,12 +33,12 @@ void calculate_force(Particle *this_particle1, Particle *this_particle2,
 	*force_z = (force_magnitude / distance) * difference_z;
 }
 
-void nbody(Particle *d_particles, Particle *output)
+void nbody(Particle *d_particles, Particle *output, int inicio, int fim)
 {
 #pragma omp parallel
 	{
 #pragma omp for
-		for (int id = 0; id < number_of_particles; id++)
+		for (int id = inicio; id < fim; id++)
 		{
 			Particle *this_particle = &output[id];
 
@@ -44,7 +46,7 @@ void nbody(Particle *d_particles, Particle *output)
 			float total_force_x = 0.0f, total_force_y = 0.0f, total_force_z = 0.0f;
 
 			int i;
-			for (i = 0; i < number_of_particles; i++)
+			for (i = inicio; i < fim; i++)
 			{
 				if (i != id)
 				{
@@ -96,6 +98,8 @@ int main(int argc, char **argv)
 
 	Particle *particle_array = nullptr;
 	Particle *particle_array2 = nullptr;
+	Particle *sub_particle_array = nullptr;
+	Particle *sub_particle_array2 = nullptr;
 
 	FILE *input_data = fopen(argv[1], "r");
 	Particle_input_arguments(input_data);
@@ -106,60 +110,75 @@ int main(int argc, char **argv)
 
 	FILE *results_file = fopen(c_out_file_name, "w");
 
-	//executa 30x
-	for (int i = 0; i < 30; i++)
+	particle_array = Particle_array_construct(number_of_particles);
+	particle_array2 = Particle_array_construct(number_of_particles);
+
+	// printf("Processando simulação NBody.... iter = %d\n", i);
+
+	double start;
+	int myRank, worldSize;
+
+	MPI_Init(NULL, NULL);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+
+	// MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
+	MPI_Bcast(&number_of_particles, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+	for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
 	{
-		particle_array = Particle_array_construct(number_of_particles);
-		particle_array2 = Particle_array_construct(number_of_particles);
-		Particle_array_initialize(particle_array, number_of_particles);
 
-		printf("Processando simulação NBody.... iter = %d\n", i);
-
-		double start = omp_get_wtime();
-
-#pragma omp parallel
+		if (myRank == 0)
 		{
-#pragma omp for
-			for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
-			{
-				nbody(particle_array, particle_array2);
+			Particle_array_initialize(particle_array, number_of_particles);
+			start = omp_get_wtime();
 
-				/* swap arrays */
-				Particle *tmp = particle_array;
-				particle_array = particle_array2;
-				particle_array2 = tmp;
-
-				printf("   Iteração %d OK\n", timestep);
-			}
+			Particle *tmp = particle_array;
+			particle_array = particle_array2;
+			particle_array2 = tmp;
 		}
 
-		double end = omp_get_wtime();
+		//MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
+		MPI_Bcast(particle_array, sizeof(Particle) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-		double time = (end - start);
+		int inicio = myRank * number_of_particles / worldSize;
+		int fim = (myRank + 1) * number_of_particles / worldSize - 1;
+		nbody(particle_array, particle_array2, inicio, fim);
 
-		printf("Simulação NBody executada com sucesso.\n");
-		printf("Nro. de Partículas: %d\n", number_of_particles);
-		printf("Nro. de Iterações: %d\n", number_of_timesteps);
-		printf("Tempo: %.8f segundos\n", time);
+		// MPI_Gather(void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data, int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator)
+		MPI_Gather(&particle_array, sizeof(Particle) * number_of_particles, MPI_BYTE, particle_array, sizeof(Particle) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-		// ------------------------------------------------
-		printf("\nImprimindo saída em arquivo...\n");
-
-		fprintf(results_file, "%f\n", time);
-
-#ifdef VERBOSE
-		//Imprimir saída para arquivo
-		printf("\nImprimindo saída em arquivo...\n");
-		FILE *fileptr = fopen("nbody_simulation.out", "w");
-		Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
-		printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
-#endif
-
-		particle_array = Particle_array_destruct(particle_array, number_of_particles);
-		particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+		printf("Iteração %d OK\n", timestep);
 	}
 
+	double end = omp_get_wtime();
+
+	double time = (end - start);
+
+	printf("Simulação NBody executada com sucesso.\n");
+	printf("Nro. de Partículas: %d\n", number_of_particles);
+	printf("Nro. de Iterações: %d\n", number_of_timesteps);
+	printf("Tempo: %.8f segundos\n", time);
+
+	// ------------------------------------------------
+	printf("\nImprimindo saída em arquivo...\n");
+
+	fprintf(results_file, "%f\n", time);
+
+#ifdef VERBOSE
+	//Imprimir saída para arquivo
+	printf("\nImprimindo saída em arquivo...\n");
+	FILE *fileptr = fopen("nbody_simulation.out", "w");
+	Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
+	printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
+#endif
+
+	particle_array = Particle_array_destruct(particle_array, number_of_particles);
+	particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+
 	fclose(results_file);
+
+	MPI_Finalize();
 
 	return PROGRAM_SUCCESS_CODE;
 }
