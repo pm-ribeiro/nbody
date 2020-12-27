@@ -1,9 +1,8 @@
-CXX= g++-10
+CXX= mpic++
 LINK = $(CXX)
 EXE = nbody_simulation
 CXXFLAGS = -fopenmp -O3 -std=c++11 -lpthread
-
-#CXXFLAGS += -g -DVERBOSE
+CXXFLAGS += -g -DVERBOSE
 
 SRC = $(wildcard *.cpp)
 OBJ = $(SRC:.cpp=.o)
