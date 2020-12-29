@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
 	// SAIDA
 	// cria o arquivo para salvar os tempos de execução
-	string out_file_name = "resultados_nbody_" + to_string(number_of_threds) + "_threads.txt";
+	string out_file_name = "in_pequeno_resultados_nbody_" + to_string(number_of_threds) + "_threads.txt";
 	char *c_out_file_name = const_cast<char *>(out_file_name.c_str());
 
 	FILE *results_file = fopen(c_out_file_name, "w");
@@ -108,79 +108,89 @@ int main(int argc, char **argv)
 	// -------------------------------------------------------------------------------------------------------------------
 	MPI_Init(NULL, NULL);
 
-	int myRank, worldSize;
-
-	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-	MPI_Comm_size(MPI_COMM_WORLD, &worldSize); //total of ranks in the comunicator
-
-	// MPI_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator)
-	MPI_Bcast(&number_of_particles, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-	Particle *particle_array = nullptr;
-	Particle *particle_array2 = nullptr;
-	Particle *sub_particle_array = nullptr;
-	particle_array = Particle_array_construct(number_of_particles);
-	particle_array2 = Particle_array_construct(number_of_particles);
-	sub_particle_array = Particle_array_construct(number_of_particles);
-
-	if (myRank == 0)
+	// executa 30x e salva os tempos
+	for (int i = 0; i < 30; i++)
 	{
-		printf("Processando simulação NBody....\n");
-		Particle_array_initialize(particle_array, number_of_particles);
-	}
+		printf("iter %d\n", i);
 
-	long start, end;
+		int myRank, worldSize;
 
-	for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
-	{
-		if (myRank == 0)
-		{
-			start = wtime();
-			printf("   Iteração %d OK\n", timestep);
-		}
+		MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+		MPI_Comm_size(MPI_COMM_WORLD, &worldSize); //total of ranks in the comunicator
 
 		// MPI_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator)
-		MPI_Bcast(particle_array, sizeof(Particle *) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
+		MPI_Bcast(&number_of_particles, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-		int inicio = myRank * number_of_particles / worldSize;
-		int fim = (myRank + 1) * number_of_particles / worldSize - 1;
+		Particle *particle_array = nullptr;
+		Particle *particle_array2 = nullptr;
+		Particle *sub_particle_array = nullptr;
+		particle_array = Particle_array_construct(number_of_particles);
+		particle_array2 = Particle_array_construct(number_of_particles);
+		sub_particle_array = Particle_array_construct(number_of_particles);
 
-		nbody(particle_array, particle_array2, inicio, fim);
+		if (myRank == 0)
+		{
+			printf("Processando simulação NBody....\n");
+			Particle_array_initialize(particle_array, number_of_particles);
+		}
 
-		// MPI_Gather( void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data, int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator)
-		MPI_Gather(particle_array, sizeof(Particle) * number_of_particles, MPI_BYTE, particle_array2, sizeof(Particle) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
-	}
+		long start, end;
 
-	if (myRank == 0)
-	{
-		end = wtime();
-		double time = (end - start) / 1000000.0;
+		for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
+		{
+			if (myRank == 0)
+			{
+				start = wtime();
+			}
 
-		printf("Simulação NBody executada com sucesso.\n");
-		printf("Nro. de Partículas: %d\n", number_of_particles);
-		printf("Nro. de Iterações: %d\n", number_of_timesteps);
-		printf("Tempo: %.8f segundos\n", time);
+			// MPI_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator)
+			MPI_Bcast(particle_array, sizeof(Particle *) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-		// ------------------------------------------------
-		printf("\nImprimindo saída em arquivo...\n");
+			int inicio = myRank * number_of_particles / worldSize;
+			int fim = (myRank + 1) * number_of_particles / worldSize;
 
-		fprintf(results_file, "%f\n", time);
+			//confere o inicio e o fim do rank
+			// printf("My rank = %d, inicio = %d, Fim = %d\n", myRank, inicio, fim);
+
+			nbody(particle_array, particle_array2, inicio, fim);
+
+			// MPI_Gather( void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data, int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator)
+			MPI_Gather(particle_array, sizeof(Particle) * number_of_particles, MPI_BYTE, particle_array2, sizeof(Particle) * number_of_particles, MPI_BYTE, 0, MPI_COMM_WORLD);
+
+			printf("Iteração %d OK - MyRank = %d\n", timestep, myRank);
+		}
+
+		if (myRank == 0)
+		{
+			end = wtime();
+			double time = (end - start) / 1000000.0;
+
+			printf("Simulação NBody executada com sucesso.\n");
+			printf("Nro. de Partículas: %d\n", number_of_particles);
+			printf("Nro. de Iterações: %d\n", number_of_timesteps);
+			printf("Tempo: %.8f segundos\n", time);
+
+			// ------------------------------------------------
+			printf("\nImprimindo saída em arquivo...\n");
+
+			fprintf(results_file, "%f\n", time);
 
 #ifdef VERBOSE
-		//Imprimir saída para arquivo
-		printf("\nImprimindo saída em arquivo...\n");
-		FILE *fileptr = fopen("nbody_simulation.out", "w");
-		Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
-		printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
+			//Imprimir saída para arquivo
+			printf("\nImprimindo saída em arquivo...\n");
+			FILE *fileptr = fopen("nbody_simulation.out", "w");
+			Particle_array_output_xyz(fileptr, particle_array, number_of_particles);
+			printf("Saída da simulação salva no arquivo nbody_simulation.out\n");
 #endif
-	}
+		}
 
-	particle_array = Particle_array_destruct(particle_array, number_of_particles);
-	particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+		particle_array = Particle_array_destruct(particle_array, number_of_particles);
+		particle_array2 = Particle_array_destruct(particle_array2, number_of_particles);
+	}
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Finalize();
 
 	fclose(results_file);
 
-	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Finalize();
 	return PROGRAM_SUCCESS_CODE;
 }
