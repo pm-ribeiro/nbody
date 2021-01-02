@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	MPI_Init(NULL, NULL);
 
 	// executa 30x e salva os tempos
-	for (int i = 0; i < 30; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		printf("iter %d\n", i);
 
@@ -134,13 +134,13 @@ int main(int argc, char **argv)
 			Particle_array_initialize(particle_array, number_of_particles);
 		}
 
-		long start, end;
+		double start, end;
 
 		for (int timestep = 1; timestep <= number_of_timesteps; timestep++)
 		{
 			if (myRank == 0)
 			{
-				start = omp_get_wtime();
+				start = MPI_Wtime();
 			}
 
 			// MPI_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator)
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
 		if (myRank == 0)
 		{
-			end = omp_get_wtime();
+			end = MPI_Wtime();
 			double time = (end - start);
 
 			printf("Simulação NBody executada com sucesso.\n");
