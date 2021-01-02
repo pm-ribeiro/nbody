@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 		{
 			if (myRank == 0)
 			{
-				start = wtime();
+				start = omp_get_wtime();
 			}
 
 			// MPI_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator)
@@ -162,8 +162,8 @@ int main(int argc, char **argv)
 
 		if (myRank == 0)
 		{
-			end = wtime();
-			double time = (end - start) / 1000000.0;
+			end = omp_get_wtime();
+			double time = (end - start);
 
 			printf("Simulação NBody executada com sucesso.\n");
 			printf("Nro. de Partículas: %d\n", number_of_particles);
