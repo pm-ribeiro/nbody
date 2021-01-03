@@ -1,21 +1,27 @@
-Problema Nbody
+# Problema Nbody versão MPI
 
 Instruções para execução
 
--> Compilar os arquivos
+### Compilar os arquivos
 
 No terminal
-make -f Makefile
 
--> Execução do arquivo de entrada pequeno
+```bash
+$ Make -f Makefile
+```
 
-./nbody_simulation input_files/nbody_input-16384_16384.in <numero_de_threads>
+### Executar entrada pequena
+```bash
+$ mpirun -np <numero_de_processos> ./nbody_simulation input_files/nbody_input-16384_16384.in <numero_de_threads>
+```
 
--> Execução do arquivo de entrada grande
+### Executar entrada grande
 
-./nbody_simulation input_files/nbody_input-32768_32768.in <numero_de_threads>
+```bash
+$ mpirun -np <numero_de_processos> ./nbody_simulation input_files/nbody_input-32768_32768.in <numero_de_threads>
+```
 
 O algoritmo será executado 30 vezes, ao final será criado um arquivo .txt
 contendo os tempos de execução (em segundos) de cada iteração do algoritmo.
 
-Exemplo de nome do arquivo: resultados_nbody_10_threads.txt
+Exemplo de nome do arquivo: in_grande_resultados_nbody_4_threads.txt
